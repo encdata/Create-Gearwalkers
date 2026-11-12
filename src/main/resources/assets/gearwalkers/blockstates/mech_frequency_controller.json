@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "gearwalkers:block/mech_frequency_controller"
+    }
+  }
+}

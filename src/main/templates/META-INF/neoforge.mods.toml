@@ -99,6 +99,13 @@ A Create addon for Minecraft 1.21.1.
     ordering="AFTER"
     side="BOTH"
 
+[[dependencies.${mod_id}]]
+    modId="simulated"
+    type="required"
+    versionRange="[1.2.1,)"
+    ordering="AFTER"
+    side="BOTH"
+
 # Here's another dependency
 [[dependencies.${mod_id}]]
     modId="minecraft"

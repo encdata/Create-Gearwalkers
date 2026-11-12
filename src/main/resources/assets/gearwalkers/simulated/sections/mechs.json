@@ -1,0 +1,11 @@
+{
+  "priority": 1100,
+  "title": {
+    "text": { "translate": "gearwalkers.simulated_section.mechs" },
+    "background": "#aa242a2e",
+    "color": "#fff2d0",
+    "secondary_color": "#ffd27a"
+  },
+  "sprite": "simulated:banner",
+  "only_animate_on_hover": true
+}
