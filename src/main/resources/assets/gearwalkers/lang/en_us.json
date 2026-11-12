@@ -1,4 +1,16 @@
 {
   "block.gearwalkers.mech_frequency_controller": "Mech Frequency Controller",
-  "gearwalkers.simulated_section.mechs": "Gearwalkers"
+  "gearwalkers.simulated_section.mechs": "Gearwalkers",
+  "gearwalkers.gui.frequency": "Frequency",
+  "gearwalkers.gui.mech_commands": "Mech Frequency Controller",
+  "gearwalkers.gui.enabled": "On",
+  "gearwalkers.gui.disabled": "Off",
+  "gearwalkers.command.walk_forward": "Walk Forward",
+  "gearwalkers.command.walk_backward": "Walk Backward",
+  "gearwalkers.command.walk_left": "Walk Left",
+  "gearwalkers.command.walk_right": "Walk Right",
+  "gearwalkers.command.jump": "Jump",
+  "gearwalkers.gui.edit": "Edit",
+  "gearwalkers.gui.command": "Command",
+  "gearwalkers.gui.create_frequency": "Create Frequency"
 }
