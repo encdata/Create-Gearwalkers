@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "facing=north,assembled=false": { "model": "gearwalkers:block/hinge" },
+    "facing=south,assembled=false": { "model": "gearwalkers:block/hinge", "y": 180 },
+    "facing=east,assembled=false": { "model": "gearwalkers:block/hinge", "y": 90 },
+    "facing=west,assembled=false": { "model": "gearwalkers:block/hinge", "y": 270 },
+    "facing=up,assembled=false": { "model": "gearwalkers:block/hinge", "x": 270 },
+    "facing=down,assembled=false": { "model": "gearwalkers:block/hinge", "x": 90 },
+    "facing=north,assembled=true": { "model": "gearwalkers:block/hinge" },
+    "facing=south,assembled=true": { "model": "gearwalkers:block/hinge", "y": 180 },
+    "facing=east,assembled=true": { "model": "gearwalkers:block/hinge", "y": 90 },
+    "facing=west,assembled=true": { "model": "gearwalkers:block/hinge", "y": 270 },
+    "facing=up,assembled=true": { "model": "gearwalkers:block/hinge", "x": 270 },
+    "facing=down,assembled=true": { "model": "gearwalkers:block/hinge", "x": 90 }
+  }
+}

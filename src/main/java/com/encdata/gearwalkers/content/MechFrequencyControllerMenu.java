@@ -17,18 +17,42 @@ import net.neoforged.api.distmarker.OnlyIn;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.SlotItemHandler;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class MechFrequencyControllerMenu extends GhostItemMenu<MechFrequencyControllerBlockEntity> {
+    public static final int CLEAR_CONTROL = Integer.MIN_VALUE;
     public boolean showSlots;
     private ContainerGuiTheme theme = ContainerGuiTheme.DARK_OAK;
+    private final List<MechControlRegistry.Control> controls = new ArrayList<>();
 
     public MechFrequencyControllerMenu(int id, Inventory inventory, RegistryFriendlyByteBuf data) {
         super(GearwalkersMenus.MECH_FREQUENCY_CONTROLLER.get(), id, inventory, data);
+        loadControls();
     }
 
     public MechFrequencyControllerMenu(int id, Inventory inventory, MechFrequencyControllerBlockEntity controller) {
         super(GearwalkersMenus.MECH_FREQUENCY_CONTROLLER.get(), id, inventory, controller);
+        loadControls();
+    }
+
+    private void loadControls() {
+        if (contentHolder != null) controls.addAll(MechControlRegistry.getControls(contentHolder.getMenuControlIds()));
+        else controls.addAll(MechControlRegistry.getControls(List.of()));
+    }
+
+    public List<MechControlRegistry.Control> getControls() {
+        return controls;
+    }
+
+    public int getRemoveButtonId(int index) {
+        return -(index + 1);
+    }
+
+    public int getEditButtonId(int index) {
+        return -(controls.size() + index + 1);
     }
 
     public ContainerGuiTheme getTheme() {
@@ -92,25 +116,26 @@ public class MechFrequencyControllerMenu extends GhostItemMenu<MechFrequencyCont
     public boolean clickMenuButton(Player player, int id) {
         if (contentHolder == null || !stillValid(player) || !player.mayBuild()) return false;
 
-        if (id >= 0 && id < MechCommand.values().length) {
-            contentHolder.setCommand(MechCommand.values()[id], ghostInventory.getStackInSlot(0), ghostInventory.getStackInSlot(1));
+        if (id == CLEAR_CONTROL) {
+            ghostInventory.setStackInSlot(0, ItemStack.EMPTY);
+            ghostInventory.setStackInSlot(1, ItemStack.EMPTY);
             return true;
         }
-        if (id >= 10 && id < 10 + MechCommand.values().length) {
-            contentHolder.removeCommand(MechCommand.values()[id - 10]);
+        if (id >= 0 && id < controls.size()) {
+            contentHolder.setCommand(controls.get(id).id(), ghostInventory.getStackInSlot(0), ghostInventory.getStackInSlot(1));
             return true;
         }
-        if (id >= 20 && id < 20 + MechCommand.values().length) {
-            var command = MechCommand.values()[id - 20];
-            var entry = contentHolder.getCommands().stream().filter(row -> row.command() == command).findFirst().orElse(null);
+        long encoded = -(long) id - 1;
+        if (id < 0 && encoded < controls.size()) {
+            contentHolder.removeCommand(controls.get((int) encoded).id());
+            return true;
+        }
+        if (id < 0 && encoded >= controls.size() && encoded < controls.size() * 2L) {
+            var control = controls.get((int) (encoded - controls.size()));
+            var entry = contentHolder.getCommands().stream().filter(row -> row.controlId().equals(control.id())).findFirst().orElse(null);
             if (entry == null) return false;
             ghostInventory.setStackInSlot(0, entry.first().getStack());
             ghostInventory.setStackInSlot(1, entry.second().getStack());
-            return true;
-        }
-        if (id == 25) {
-            ghostInventory.setStackInSlot(0, ItemStack.EMPTY);
-            ghostInventory.setStackInSlot(1, ItemStack.EMPTY);
             return true;
         }
         return false;

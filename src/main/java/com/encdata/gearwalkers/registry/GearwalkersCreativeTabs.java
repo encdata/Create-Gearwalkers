@@ -12,6 +12,8 @@ public final class GearwalkersCreativeTabs {
 
     public static void register() {
         REGISTRATE.addExtraItem(id("mech_frequency_controller"));
+        REGISTRATE.addExtraItem(id("hinge"));
+        REGISTRATE.addExtraItem(id("ball_joint"));
     }
 
     private static ResourceLocation id(String path) {

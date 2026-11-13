@@ -1,7 +1,6 @@
 package com.encdata.gearwalkers.network;
 
 import com.encdata.gearwalkers.Gearwalkers;
-import com.encdata.gearwalkers.content.MechCommand;
 import com.encdata.gearwalkers.content.MechCommandFrequency;
 import com.simibubi.create.content.redstone.link.RedstoneLinkNetworkHandler;
 import net.minecraft.core.BlockPos;
@@ -24,7 +23,7 @@ public record MechFrequencySavePayload(BlockPos pos, List<MechCommandFrequency> 
         BlockPos.STREAM_CODEC.encode(buffer, payload.pos());
         buffer.writeVarInt(payload.entries().size());
         for (MechCommandFrequency entry : payload.entries()) {
-            buffer.writeVarInt(entry.command().ordinal());
+            buffer.writeUtf(entry.controlId());
             ItemStack.OPTIONAL_STREAM_CODEC.encode(buffer, entry.first().getStack());
             ItemStack.OPTIONAL_STREAM_CODEC.encode(buffer, entry.second().getStack());
         }
@@ -33,14 +32,13 @@ public record MechFrequencySavePayload(BlockPos pos, List<MechCommandFrequency> 
     private static MechFrequencySavePayload read(RegistryFriendlyByteBuf buffer) {
         BlockPos pos = BlockPos.STREAM_CODEC.decode(buffer);
         int size = buffer.readVarInt();
-        if (size < 0 || size > MechCommand.values().length) throw new IllegalArgumentException("invalid mech command count: " + size);
+        if (size < 0 || size > 4096) throw new IllegalArgumentException("invalid mech command count: " + size);
         List<MechCommandFrequency> entries = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            int commandId = buffer.readVarInt();
-            if (commandId < 0 || commandId >= MechCommand.values().length) throw new IllegalArgumentException("invalid mech command: " + commandId);
+            String controlId = buffer.readUtf();
             ItemStack first = ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer);
             ItemStack second = ItemStack.OPTIONAL_STREAM_CODEC.decode(buffer);
-            entries.add(new MechCommandFrequency(MechCommand.values()[commandId],
+            entries.add(new MechCommandFrequency(controlId,
                     RedstoneLinkNetworkHandler.Frequency.of(first), RedstoneLinkNetworkHandler.Frequency.of(second)));
         }
         return new MechFrequencySavePayload(pos, entries);

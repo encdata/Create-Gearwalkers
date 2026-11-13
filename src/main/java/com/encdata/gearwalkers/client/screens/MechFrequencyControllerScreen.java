@@ -1,8 +1,8 @@
 package com.encdata.gearwalkers.client.screens;
 
-import com.encdata.gearwalkers.content.MechCommand;
-import com.encdata.gearwalkers.content.MechCommandFrequency;
 import com.encdata.gearwalkers.content.ContainerGuiTheme;
+import com.encdata.gearwalkers.content.MechCommandFrequency;
+import com.encdata.gearwalkers.content.MechControlRegistry;
 import com.encdata.gearwalkers.content.MechFrequencyControllerMenu;
 import com.encdata.gearwalkers.network.MechFrequencySavePayload;
 import net.minecraft.client.gui.GuiGraphics;
@@ -25,8 +25,8 @@ public class MechFrequencyControllerScreen extends AbstractContainerScreen<MechF
     private Button doneButton;
     private Button confirmButton;
     private Button cancelButton;
-    private MechCommand editingCommand;
-    private MechCommand selectedCommand;
+    private MechControlRegistry.Control editingControl;
+    private MechControlRegistry.Control selectedControl;
     private double scroll;
 
     public MechFrequencyControllerScreen(MechFrequencyControllerMenu menu, Inventory inventory, Component title) {
@@ -35,7 +35,11 @@ public class MechFrequencyControllerScreen extends AbstractContainerScreen<MechF
         imageHeight = 205;
         titleLabelY = 7;
         inventoryLabelY = 10000;
-        if (menu.contentHolder != null) entries.addAll(menu.contentHolder.getCommands());
+        if (menu.contentHolder != null) {
+            for (MechCommandFrequency entry : menu.contentHolder.getCommands()) {
+                if (controlIndex(entry.controlId()) >= 0) entries.add(entry);
+            }
+        }
     }
 
     public ContainerGuiTheme getTheme() {
@@ -60,7 +64,7 @@ public class MechFrequencyControllerScreen extends AbstractContainerScreen<MechF
             Button remove = addRenderableWidget(createButton(Component.literal("×"), button -> remove(entry), 0, 0, 20, 18));
             rowButtons.add(new RowButtons(entry, edit, remove));
         }
-        addButton.active = entries.size() < MechCommand.values().length;
+        addButton.active = firstAvailableControl() != null;
 
         confirmButton = addRenderableWidget(createButton(Component.translatable("gui.done"), button -> confirmEdit(),
                 leftPos + 48, topPos + 87, 58, 20));
@@ -70,37 +74,42 @@ public class MechFrequencyControllerScreen extends AbstractContainerScreen<MechF
     }
 
     private void startAdding() {
-        editingCommand = null;
-        selectedCommand = firstAvailableCommand();
-        if (selectedCommand == null) return;
+        editingControl = null;
+        selectedControl = firstAvailableControl();
+        if (selectedControl == null) return;
         menu.ghostInventory.setStackInSlot(0, ItemStack.EMPTY);
         menu.ghostInventory.setStackInSlot(1, ItemStack.EMPTY);
-        clickMenuButton(25);
+        clickMenuButton(MechFrequencyControllerMenu.CLEAR_CONTROL);
         menu.showSlots = true;
         setEditorVisible(true);
     }
 
     private void startEditing(MechCommandFrequency entry) {
-        editingCommand = entry.command();
-        selectedCommand = entry.command();
+        int controlIndex = controlIndex(entry.controlId());
+        if (controlIndex < 0) return;
+        editingControl = menu.getControls().get(controlIndex);
+        selectedControl = editingControl;
         menu.ghostInventory.setStackInSlot(0, entry.first().getStack());
         menu.ghostInventory.setStackInSlot(1, entry.second().getStack());
-        clickMenuButton(20 + entry.command().ordinal());
+        clickMenuButton(menu.getEditButtonId(controlIndex));
         menu.showSlots = true;
         setEditorVisible(true);
     }
 
     private void confirmEdit() {
-        if (selectedCommand == null) return;
+        if (selectedControl == null) return;
         ItemStack first = menu.ghostInventory.getStackInSlot(0).copy();
         ItemStack second = menu.ghostInventory.getStackInSlot(1).copy();
-        if (editingCommand != null && editingCommand != selectedCommand) {
-            clickMenuButton(10 + editingCommand.ordinal());
-            entries.removeIf(entry -> entry.command() == editingCommand);
+        if (editingControl != null && !editingControl.id().equals(selectedControl.id())) {
+            int editingIndex = controlIndex(editingControl.id());
+            if (editingIndex >= 0) clickMenuButton(menu.getRemoveButtonId(editingIndex));
+            entries.removeIf(entry -> entry.controlId().equals(editingControl.id()));
         }
-        clickMenuButton(selectedCommand.ordinal());
-        entries.removeIf(entry -> entry.command() == selectedCommand);
-        entries.add(new MechCommandFrequency(selectedCommand,
+        int selectedIndex = controlIndex(selectedControl.id());
+        if (selectedIndex < 0) return;
+        clickMenuButton(selectedIndex);
+        entries.removeIf(entry -> entry.controlId().equals(selectedControl.id()));
+        entries.add(new MechCommandFrequency(selectedControl.id(),
                 com.simibubi.create.content.redstone.link.RedstoneLinkNetworkHandler.Frequency.of(first),
                 com.simibubi.create.content.redstone.link.RedstoneLinkNetworkHandler.Frequency.of(second)));
         sendSave();
@@ -109,8 +118,9 @@ public class MechFrequencyControllerScreen extends AbstractContainerScreen<MechF
     }
 
     private void remove(MechCommandFrequency entry) {
-        clickMenuButton(10 + entry.command().ordinal());
-        entries.removeIf(current -> current.command() == entry.command());
+        int index = controlIndex(entry.controlId());
+        if (index >= 0) clickMenuButton(menu.getRemoveButtonId(index));
+        entries.removeIf(current -> current.controlId().equals(entry.controlId()));
         sendSave();
         rebuildRowButtons();
     }
@@ -126,34 +136,42 @@ public class MechFrequencyControllerScreen extends AbstractContainerScreen<MechF
             Button remove = addRenderableWidget(createButton(Component.literal("×"), button -> remove(entry), 0, 0, 20, 18));
             rowButtons.add(new RowButtons(entry, edit, remove));
         }
-        addButton.active = entries.size() < MechCommand.values().length;
+        addButton.active = firstAvailableControl() != null;
     }
 
-    private MechCommand firstAvailableCommand() {
-        for (MechCommand command : MechCommand.values()) {
-            if (entries.stream().noneMatch(entry -> entry.command() == command)) return command;
+    private MechControlRegistry.Control firstAvailableControl() {
+        for (MechControlRegistry.Control control : menu.getControls()) {
+            if (entries.stream().noneMatch(entry -> entry.controlId().equals(control.id()))) return control;
         }
         return null;
     }
 
-    private List<MechCommand> availableCommands() {
-        List<MechCommand> available = new ArrayList<>();
-        for (MechCommand command : MechCommand.values()) {
-            if (command == editingCommand || entries.stream().noneMatch(entry -> entry.command() == command)) available.add(command);
+    private List<MechControlRegistry.Control> availableControls() {
+        List<MechControlRegistry.Control> available = new ArrayList<>();
+        for (MechControlRegistry.Control control : menu.getControls()) {
+            if ((editingControl != null && editingControl.id().equals(control.id()))
+                    || entries.stream().noneMatch(entry -> entry.controlId().equals(control.id()))) available.add(control);
         }
         return available;
     }
 
     private void cycleCommand(int direction) {
-        List<MechCommand> available = availableCommands();
+        List<MechControlRegistry.Control> available = availableControls();
         if (available.isEmpty()) return;
-        int index = available.indexOf(selectedCommand);
-        selectedCommand = available.get(Math.floorMod(index + direction, available.size()));
+        int index = available.indexOf(selectedControl);
+        selectedControl = available.get(Math.floorMod(index + direction, available.size()));
+    }
+
+    private int controlIndex(String id) {
+        for (int i = 0; i < menu.getControls().size(); i++) {
+            if (menu.getControls().get(i).id().equals(id)) return i;
+        }
+        return -1;
     }
 
     private void closeEditor() {
-        editingCommand = null;
-        selectedCommand = null;
+        editingControl = null;
+        selectedControl = null;
         menu.showSlots = false;
         setEditorVisible(false);
     }
@@ -182,7 +200,7 @@ public class MechFrequencyControllerScreen extends AbstractContainerScreen<MechF
         ContainerGuiRenderer.renderWindow(graphics, leftPos, topPos, imageWidth, imageHeight, getTheme());
         ContainerGuiRenderer.renderMachinePanel(graphics, leftPos + 7, topPos + 20, imageWidth - 14, imageHeight - 27, getTheme());
 
-        if (selectedCommand != null) {
+        if (selectedControl != null) {
             renderEditor(graphics);
             return;
         }
@@ -195,7 +213,7 @@ public class MechFrequencyControllerScreen extends AbstractContainerScreen<MechF
             int rowY = (int) (viewportTop + i * ROW_HEIGHT - scroll);
             ContainerGuiRenderer.renderMachinePanel(graphics, leftPos + 10, rowY, imageWidth - 20, 30, getTheme());
             graphics.enableScissor(leftPos + 16, rowY + 5, leftPos + 72, rowY + 25);
-            graphics.drawScrollingString(font, entry.command().getName(), leftPos + 16, leftPos + 72, rowY + 10, getTheme().text());
+            graphics.drawScrollingString(font, entry.getName(), leftPos + 16, leftPos + 72, rowY + 10, getTheme().text());
             graphics.disableScissor();
             drawFrequencyItem(graphics, entry.first().getStack(), leftPos + 76, rowY + 6);
             drawFrequencyItem(graphics, entry.second().getStack(), leftPos + 99, rowY + 6);
@@ -210,7 +228,7 @@ public class MechFrequencyControllerScreen extends AbstractContainerScreen<MechF
         graphics.drawString(font, Component.translatable("gearwalkers.gui.command"), leftPos + 15, topPos + 31, getTheme().text(), false);
         ContainerGuiRenderer.renderMachinePanel(graphics, leftPos + 70, topPos + 25, 104, 20, getTheme());
         graphics.enableScissor(leftPos + 72, topPos + 25, leftPos + 172, topPos + 45);
-        graphics.drawScrollingString(font, selectedCommand.getName(), leftPos + 72, leftPos + 172, topPos + 31, getTheme().text());
+        graphics.drawScrollingString(font, selectedControl.name(), leftPos + 72, leftPos + 172, topPos + 31, getTheme().text());
         graphics.disableScissor();
         graphics.drawString(font, Component.translatable("gearwalkers.gui.create_frequency"), leftPos + 15, topPos + 53, getTheme().text(), false);
         ContainerGuiRenderer.renderFrequencySlot(graphics, leftPos + 80, topPos + 68, true, getTheme());
@@ -239,14 +257,14 @@ public class MechFrequencyControllerScreen extends AbstractContainerScreen<MechF
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (selectedCommand != null && mouseX >= leftPos + 70 && mouseX <= leftPos + 174
+        if (selectedControl != null && mouseX >= leftPos + 70 && mouseX <= leftPos + 174
                 && mouseY >= topPos + 25 && mouseY <= topPos + 45) {
             if (scrollY != 0) cycleCommand(scrollY > 0 ? -1 : 1);
             return true;
         }
         int top = topPos + 28;
         int bottom = topPos + 169;
-        if (selectedCommand == null && mouseX >= leftPos && mouseX <= leftPos + imageWidth && mouseY >= top && mouseY <= bottom) {
+        if (selectedControl == null && mouseX >= leftPos && mouseX <= leftPos + imageWidth && mouseY >= top && mouseY <= bottom) {
             double maxScroll = Math.max(0, entries.size() * ROW_HEIGHT - (bottom - top));
             scroll = Math.clamp(scroll - scrollY * 20, 0, maxScroll);
             return true;
@@ -256,7 +274,7 @@ public class MechFrequencyControllerScreen extends AbstractContainerScreen<MechF
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (selectedCommand != null && button == 0 && mouseX >= leftPos + 70 && mouseX <= leftPos + 174
+        if (selectedControl != null && button == 0 && mouseX >= leftPos + 70 && mouseX <= leftPos + 174
                 && mouseY >= topPos + 25 && mouseY <= topPos + 45) {
             cycleCommand(1);
             return true;
